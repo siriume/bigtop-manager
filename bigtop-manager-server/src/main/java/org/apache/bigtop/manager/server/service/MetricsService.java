@@ -16,17 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.bigtop.manager.ai.core.factory;
+package org.apache.bigtop.manager.server.service;
 
-import reactor.core.publisher.Flux;
+import com.fasterxml.jackson.databind.JsonNode;
 
-import java.util.List;
+public interface MetricsService {
 
-public interface ToolBox {
+    JsonNode queryAgentsHealthyStatus();
 
-    List<String> getTools();
+    JsonNode queryAgentsInfo(Long id, String interval);
 
-    String invoke(String toolName);
-
-    Flux<String> streamInvoke(String toolName);
+    JsonNode queryClustersInfo(Long clusterId, String interval);
 }

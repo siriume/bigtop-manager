@@ -16,16 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.bigtop.manager.ai.core.provider;
+package org.apache.bigtop.manager.server.command.task;
 
-import java.util.Map;
+import org.apache.bigtop.manager.common.enums.Command;
 
-public interface AIAssistantConfigProvider {
-    String getModel();
+public class ComponentPrepareTask extends AbstractComponentTask {
 
-    Map<String, String> getCredentials();
+    public ComponentPrepareTask(TaskContext taskContext) {
+        super(taskContext);
+    }
 
-    Map<String, String> getConfigs();
+    @Override
+    protected Command getCommand() {
+        return Command.PREPARE;
+    }
 
-    String getLanguage();
+    @Override
+    public String getName() {
+        return "Prepare " + taskContext.getComponentDisplayName() + " on " + taskContext.getHostname();
+    }
 }

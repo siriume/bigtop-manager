@@ -16,21 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.bigtop.manager.server.command.job;
+package org.apache.bigtop.manager.server.command.job.component;
 
-public class ServiceStopJob extends AbstractServiceJob {
+import org.apache.bigtop.manager.server.command.helper.ComponentStageHelper;
+import org.apache.bigtop.manager.server.command.job.JobContext;
+import org.apache.bigtop.manager.server.model.dto.CommandDTO;
 
-    public ServiceStopJob(JobContext jobContext) {
+import java.util.List;
+import java.util.Map;
+
+public class ComponentStartJob extends AbstractComponentJob {
+
+    public ComponentStartJob(JobContext jobContext) {
         super(jobContext);
     }
 
     @Override
     protected void createStages() {
-        super.createStopStages();
+        CommandDTO commandDTO = jobContext.getCommandDTO();
+        Map<String, List<String>> componentHostsMap = getComponentHostsMap();
+
+        stages.addAll(ComponentStageHelper.createComponentStages(componentHostsMap, commandDTO));
     }
 
     @Override
     public String getName() {
-        return "Stop services";
+        return "Start components";
     }
 }

@@ -16,37 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.bigtop.manager.server.service.impl;
+package org.apache.bigtop.manager.server.command.job.host;
 
-import org.apache.bigtop.manager.server.proxy.PrometheusProxy;
-import org.apache.bigtop.manager.server.service.MonitoringService;
+import org.apache.bigtop.manager.server.command.helper.ComponentStageHelper;
+import org.apache.bigtop.manager.server.command.job.JobContext;
+import org.apache.bigtop.manager.server.model.dto.CommandDTO;
 
-import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Map;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import lombok.extern.slf4j.Slf4j;
+public class HostStopJob extends AbstractHostJob {
 
-import jakarta.annotation.Resource;
-
-@Slf4j
-@Service
-public class MonitoringServiceImpl implements MonitoringService {
-
-    @Resource
-    private PrometheusProxy prometheusProxy;
-
-    @Override
-    public JsonNode queryAgentsHealthyStatus() {
-        return prometheusProxy.queryAgentsHealthyStatus();
+    public HostStopJob(JobContext jobContext) {
+        super(jobContext);
     }
 
     @Override
-    public JsonNode queryAgentsInfo() {
-        return prometheusProxy.queryAgentsInfo();
+    protected void createStages() {
+        CommandDTO commandDTO = jobContext.getCommandDTO();
+        Map<String, List<String>> componentHostsMap = getComponentHostsMap();
+
+        stages.addAll(ComponentStageHelper.createComponentStages(componentHostsMap, commandDTO));
     }
 
     @Override
-    public JsonNode queryAgentsInstStatus() {
-        return prometheusProxy.queryAgentsInstStatus();
+    public String getName() {
+        return "Stop host";
     }
 }

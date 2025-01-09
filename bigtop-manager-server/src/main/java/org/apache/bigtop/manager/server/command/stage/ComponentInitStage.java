@@ -16,23 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.bigtop.manager.server.command.job;
+package org.apache.bigtop.manager.server.command.stage;
 
-public class ServiceRestartJob extends AbstractServiceJob {
+import org.apache.bigtop.manager.server.command.task.ComponentInitTask;
+import org.apache.bigtop.manager.server.command.task.Task;
 
-    public ServiceRestartJob(JobContext jobContext) {
-        super(jobContext);
+public class ComponentInitStage extends AbstractComponentStage {
+
+    public ComponentInitStage(StageContext stageContext) {
+        super(stageContext);
     }
 
     @Override
-    protected void createStages() {
-        super.createStopStages();
-
-        super.createStartStages();
+    protected Task createTask(String hostname) {
+        return new ComponentInitTask(createTaskContext(hostname));
     }
 
     @Override
     public String getName() {
-        return "Restart services";
+        return "Init " + stageContext.getComponentDTO().getDisplayName();
     }
 }

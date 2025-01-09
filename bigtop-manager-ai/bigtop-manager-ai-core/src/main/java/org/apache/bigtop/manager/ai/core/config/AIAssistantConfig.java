@@ -16,15 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.bigtop.manager.server.service;
+package org.apache.bigtop.manager.ai.core.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Map;
 
-public interface MonitoringService {
+public interface AIAssistantConfig {
+    String getModel();
 
-    JsonNode queryAgentsHealthyStatus();
+    Map<String, String> getCredentials();
 
-    JsonNode queryAgentsInfo();
-
-    JsonNode queryAgentsInstStatus();
+    Map<String, String> getConfigs();
 }

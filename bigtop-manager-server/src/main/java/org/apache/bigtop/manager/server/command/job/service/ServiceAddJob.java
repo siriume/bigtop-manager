@@ -16,14 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.bigtop.manager.server.command.job;
+package org.apache.bigtop.manager.server.command.job.service;
 
+import org.apache.bigtop.manager.common.enums.Command;
 import org.apache.bigtop.manager.common.utils.JsonUtils;
 import org.apache.bigtop.manager.dao.po.ComponentPO;
 import org.apache.bigtop.manager.dao.po.HostPO;
 import org.apache.bigtop.manager.dao.po.ServiceConfigPO;
 import org.apache.bigtop.manager.dao.po.ServiceConfigSnapshotPO;
 import org.apache.bigtop.manager.dao.po.ServicePO;
+import org.apache.bigtop.manager.server.command.helper.ComponentStageHelper;
+import org.apache.bigtop.manager.server.command.job.JobContext;
 import org.apache.bigtop.manager.server.enums.HealthyStatusEnum;
 import org.apache.bigtop.manager.server.model.converter.ComponentConverter;
 import org.apache.bigtop.manager.server.model.converter.ServiceConfigConverter;
@@ -58,45 +61,41 @@ public class ServiceAddJob extends AbstractServiceJob {
         // Update cache files
         super.createCacheStage();
 
+        CommandDTO commandDTO = jobContext.getCommandDTO();
+        Map<String, List<String>> componentHostsMap = getComponentHostsMap();
+
         // Install components
-        super.createAddStages();
+        stages.addAll(ComponentStageHelper.createComponentStages(componentHostsMap, Command.ADD, commandDTO));
 
-        // Configure services
-        super.createConfigureStages();
+        // Configure components
+        stages.addAll(ComponentStageHelper.createComponentStages(componentHostsMap, Command.CONFIGURE, commandDTO));
 
-        // Start all master components
-        super.createStartStages();
+        // Init/Start/Prepare components
+        // Since the order of these stages might be mixed up, we need to sort and add them together.
+        // For example, the order usually is init -> start -> prepare, but Hive Metastore init requires MySQL Server to
+        // be prepared.
+        List<Command> commands = List.of(Command.INIT, Command.START, Command.PREPARE);
+        stages.addAll(ComponentStageHelper.createComponentStages(componentHostsMap, commands, commandDTO));
 
         // Check all master components after started
-        super.createCheckStages();
+        stages.addAll(ComponentStageHelper.createComponentStages(componentHostsMap, Command.CHECK, commandDTO));
     }
 
     @Override
-    protected List<String> getComponentNames() {
-        List<String> componentNames = new ArrayList<>();
-        for (ServiceCommandDTO serviceCommand : jobContext.getCommandDTO().getServiceCommands()) {
-            List<ComponentHostDTO> componentHosts = serviceCommand.getComponentHosts();
-            for (ComponentHostDTO componentHost : componentHosts) {
-                String componentName = componentHost.getComponentName();
-                componentNames.add(componentName);
-            }
-        }
+    protected Map<String, List<String>> getComponentHostsMap() {
+        Map<String, List<String>> componentHostsMap = new HashMap<>();
 
-        return componentNames;
-    }
+        jobContext.getCommandDTO().getServiceCommands().stream()
+                .map(ServiceCommandDTO::getComponentHosts)
+                .forEach(componentHosts -> {
+                    for (ComponentHostDTO componentHost : componentHosts) {
+                        String componentName = componentHost.getComponentName();
+                        List<String> hostnames = componentHost.getHostnames();
+                        componentHostsMap.put(componentName, hostnames);
+                    }
+                });
 
-    @Override
-    protected List<Long> findHostIdsByComponentName(String componentName) {
-        for (ServiceCommandDTO serviceCommand : jobContext.getCommandDTO().getServiceCommands()) {
-            List<ComponentHostDTO> componentHosts = serviceCommand.getComponentHosts();
-            for (ComponentHostDTO componentHost : componentHosts) {
-                if (componentHost.getComponentName().equals(componentName)) {
-                    return componentHost.getHostIds();
-                }
-            }
-        }
-
-        return new ArrayList<>();
+        return componentHostsMap;
     }
 
     @Override
@@ -143,7 +142,7 @@ public class ServiceAddJob extends AbstractServiceJob {
         Long clusterId = commandDTO.getClusterId();
         String serviceName = serviceCommand.getServiceName();
 
-        // 1. Persist service
+        // Persist services
         StackDTO stackDTO = StackUtils.getServiceStack(serviceName);
         ServiceDTO serviceDTO = StackUtils.getServiceDTO(serviceName);
         ServicePO servicePO = ServiceConverter.INSTANCE.fromDTO2PO(serviceDTO);
@@ -152,11 +151,11 @@ public class ServiceAddJob extends AbstractServiceJob {
         servicePO.setStatus(HealthyStatusEnum.UNHEALTHY.getCode());
         serviceDao.save(servicePO);
 
-        // 2. Persist components
+        // Persist components
         List<ComponentPO> componentPOList = new ArrayList<>();
         for (ComponentHostDTO componentHostDTO : serviceCommand.getComponentHosts()) {
             String componentName = componentHostDTO.getComponentName();
-            List<HostPO> hostPOList = hostDao.findByIds(componentHostDTO.getHostIds());
+            List<HostPO> hostPOList = hostDao.findAllByHostnames(componentHostDTO.getHostnames());
 
             for (HostPO hostPO : hostPOList) {
                 ComponentDTO componentDTO = StackUtils.getComponentDTO(componentName);
@@ -171,7 +170,7 @@ public class ServiceAddJob extends AbstractServiceJob {
 
         componentDao.saveAll(componentPOList);
 
-        // 3. Persist current configs
+        // Persist current configs
         Map<String, String> confMap = new HashMap<>();
         List<ServiceConfigDTO> configs = serviceCommand.getConfigs();
         List<ServiceConfigPO> serviceConfigPOList = ServiceConfigConverter.INSTANCE.fromDTO2PO(configs);
@@ -183,7 +182,7 @@ public class ServiceAddJob extends AbstractServiceJob {
 
         serviceConfigDao.saveAll(serviceConfigPOList);
 
-        // 4. Create initial config snapshot
+        // Create initial config snapshot
         ServiceConfigSnapshotPO serviceConfigSnapshotPO = new ServiceConfigSnapshotPO();
         serviceConfigSnapshotPO.setName("initial");
         serviceConfigSnapshotPO.setDesc("Initial config snapshot");
