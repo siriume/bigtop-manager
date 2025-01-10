@@ -2,7 +2,7 @@
 
 ## 操作系统
 
-系统推荐使用`x86`架构`rockylinux 8.9`、`Anolis OS 8.9`、`openEuler 22.03`
+系统仅支持`x86_64`和`aarch64`架构。例如`rockylinux 8.9`、`Anolis OS 8.9`、`openEuler 22.03`
 
 **文件系统**
 
@@ -10,17 +10,17 @@
 
 ## Java 版本
 
-请使用 `JDK17` 或者 `JDK21`，推荐版本：`jdk-17.0.13_linux-x64_bin.tar.gz`。
+`JDK` 版本需要`≥ 17`，例如 `JDK17` 或者 `JDK21`，推荐`LTS`最新版。
 
 ## 数据库选型
 
-支持`mysql/mariadb/postgresql`和达梦。推荐`mysql 8.0`和`postgresql16.4`。
+支持`mysql/mariadb/postgresql`。推荐`mysql 8.0`和`postgresql16.4`。
 
 ##  打包`bigtop-manager`
 
 ```shell
 cd path/to/bigtop-manage
-tar -zcvf bigtop-manager.tgz --strip-components=1 -C `echo $PWD/bigtop-manager-server/target` bigtop-manager-server -C `echo $PWD/bigtop-manager-agent/target` bigtop-manager-agent
+./mvnw
 ```
 
 ## 检测和关闭系统防火墙
