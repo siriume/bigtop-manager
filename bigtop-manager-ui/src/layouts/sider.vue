@@ -18,11 +18,12 @@
 -->
 
 <script setup lang="ts">
-  import { toRefs } from 'vue'
+  import { toRefs, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { RouteExceptions } from '@/enums'
   import { useMenuStore } from '@/store/menu'
   import type { MenuItem } from '@/store/menu/types'
+  import type { ClusterStatusType } from '@/api/cluster/types'
 
   interface Props {
     siderMenuSelectedKey: string
@@ -30,14 +31,30 @@
   }
 
   const props = withDefaults(defineProps<Props>(), {
-    siderMenuSelectedKey: '',
-    siderMenus: () => []
+    siderMenuSelectedKey: ''
   })
 
-  const { siderMenuSelectedKey, siderMenus } = toRefs(props)
+  const { siderMenuSelectedKey } = toRefs(props)
   const router = useRouter()
   const menuStore = useMenuStore()
+  const menus = ref<MenuItem[]>([])
   const emits = defineEmits(['onSiderClick'])
+  const clusterStatus = ref<Record<ClusterStatusType, string>>({
+    1: 'success',
+    2: 'error',
+    3: 'warning'
+  })
+
+  watch(
+    () => props.siderMenus,
+    (val) => {
+      menus.value = []
+      menus.value = val
+    },
+    {
+      deep: true
+    }
+  )
 
   const toggleActivatedIcon = (menuItem: MenuItem) => {
     const { key, icon } = menuItem
@@ -49,7 +66,7 @@
   }
 
   const addCluster = () => {
-    router.push({ name: 'ClusterCreate' })
+    router.push({ name: 'CreateCluster' })
   }
 
   const onSiderClick = ({ key }: any) => {
@@ -60,38 +77,47 @@
 <template>
   <a-layout-sider class="sider">
     <a-menu :selected-keys="[siderMenuSelectedKey]" mode="inline" @select="onSiderClick">
-      <template v-for="menuItem in siderMenus" :key="menuItem.key">
+      <template v-for="menuItem in menus" :key="menuItem.key">
         <a-sub-menu
           v-if="menuItem.children && menuItem.name === RouteExceptions.SPECIAL_ROUTE_NAME"
           :key="menuItem.key"
         >
           <template #icon>
-            <svg-icon :name="toggleActivatedIcon(menuItem)" />
+            <svg-icon style="height: 16px; width: 16px" :name="toggleActivatedIcon(menuItem)" />
           </template>
           <template #title>
             <span>{{ $t(menuItem.label) }}</span>
           </template>
           <a-menu-item v-for="child in menuItem.children" :key="child.key">
-            <span style="margin: 0 6px">{{ child.icon }}</span>
-            <span>{{ child.label }}</span>
+            <template #icon>
+              <div
+                style="height: 10px; margin-inline: 7px; display: flex; justify-content: center; align-items: flex-end"
+              >
+                <status-dot :size="8" :color="clusterStatus[child.status as ClusterStatusType] as any" />
+              </div>
+            </template>
+            <div>
+              <span>{{ child.label }}</span>
+            </div>
           </a-menu-item>
         </a-sub-menu>
         <template v-else>
           <a-menu-item :key="menuItem.key">
             <template #icon>
-              <svg-icon :name="toggleActivatedIcon(menuItem)" />
+              <svg-icon style="height: 16px; width: 16px" :name="toggleActivatedIcon(menuItem)" />
             </template>
             <span>{{ $t(menuItem.label) }}</span>
           </a-menu-item>
         </template>
       </template>
     </a-menu>
-    <div v-show="menuStore.isClusterCreateVisible">
+    <div v-show="menuStore.isCreateClusterVisible">
       <a-divider />
       <div class="create-option">
         <a-button type="primary" ghost @click="addCluster">
-          <svg-icon name="plus" />
-          <label>{{ $t('menu.create') }}</label>
+          <div>
+            <label>{{ $t('menu.create') }}</label>
+          </div>
         </a-button>
       </div>
     </div>
@@ -129,9 +155,9 @@
       padding-bottom: $space-lg;
       button {
         width: 160px;
-        @include flexbox($align: center);
+        @include flexbox($align: center, $justify: center);
         label {
-          margin-left: 10px;
+          cursor: pointer;
         }
       }
     }

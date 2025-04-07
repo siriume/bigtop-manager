@@ -38,7 +38,10 @@ import org.apache.bigtop.manager.server.model.dto.ServiceConfigDTO;
 import org.apache.bigtop.manager.server.model.dto.ServiceDTO;
 import org.apache.bigtop.manager.server.model.dto.StackDTO;
 import org.apache.bigtop.manager.server.model.dto.command.ServiceCommandDTO;
+import org.apache.bigtop.manager.server.utils.StackConfigUtils;
 import org.apache.bigtop.manager.server.utils.StackUtils;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -58,9 +61,6 @@ public class ServiceAddJob extends AbstractServiceJob {
 
     @Override
     protected void createStages() {
-        // Update cache files
-        super.createCacheStage();
-
         CommandDTO commandDTO = jobContext.getCommandDTO();
         Map<String, List<String>> componentHostsMap = getComponentHostsMap();
 
@@ -86,11 +86,15 @@ public class ServiceAddJob extends AbstractServiceJob {
         Map<String, List<String>> componentHostsMap = new HashMap<>();
 
         jobContext.getCommandDTO().getServiceCommands().stream()
+                .filter(command -> !command.getInstalled())
                 .map(ServiceCommandDTO::getComponentHosts)
                 .forEach(componentHosts -> {
                     for (ComponentHostDTO componentHost : componentHosts) {
                         String componentName = componentHost.getComponentName();
                         List<String> hostnames = componentHost.getHostnames();
+                        if (CollectionUtils.isEmpty(hostnames)) {
+                            throw new RuntimeException("No hostnames found for component " + componentName);
+                        }
                         componentHostsMap.put(componentName, hostnames);
                     }
                 });
@@ -123,6 +127,10 @@ public class ServiceAddJob extends AbstractServiceJob {
         Long clusterId = commandDTO.getClusterId();
         List<ServiceCommandDTO> serviceCommands = commandDTO.getServiceCommands();
         for (ServiceCommandDTO serviceCommand : serviceCommands) {
+            if (serviceCommand.getInstalled()) {
+                continue;
+            }
+
             String serviceName = serviceCommand.getServiceName();
             ServicePO servicePO = serviceDao.findByClusterIdAndName(clusterId, serviceName);
             servicePO.setStatus(HealthyStatusEnum.HEALTHY.getCode());
@@ -138,6 +146,10 @@ public class ServiceAddJob extends AbstractServiceJob {
     }
 
     private void saveService(ServiceCommandDTO serviceCommand) {
+        if (serviceCommand.getInstalled()) {
+            return;
+        }
+
         CommandDTO commandDTO = jobContext.getCommandDTO();
         Long clusterId = commandDTO.getClusterId();
         String serviceName = serviceCommand.getServiceName();
@@ -172,8 +184,10 @@ public class ServiceAddJob extends AbstractServiceJob {
 
         // Persist current configs
         Map<String, String> confMap = new HashMap<>();
-        List<ServiceConfigDTO> configs = serviceCommand.getConfigs();
-        List<ServiceConfigPO> serviceConfigPOList = ServiceConfigConverter.INSTANCE.fromDTO2PO(configs);
+        List<ServiceConfigDTO> oriConfigs = StackUtils.SERVICE_CONFIG_MAP.get(serviceName);
+        List<ServiceConfigDTO> newConfigs = serviceCommand.getConfigs();
+        List<ServiceConfigDTO> mergedConfigs = StackConfigUtils.mergeServiceConfigs(oriConfigs, newConfigs);
+        List<ServiceConfigPO> serviceConfigPOList = ServiceConfigConverter.INSTANCE.fromDTO2PO(mergedConfigs);
         for (ServiceConfigPO serviceConfigPO : serviceConfigPOList) {
             serviceConfigPO.setClusterId(clusterId);
             serviceConfigPO.setServiceId(servicePO.getId());

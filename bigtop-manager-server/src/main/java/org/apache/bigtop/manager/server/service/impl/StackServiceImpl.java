@@ -18,25 +18,42 @@
  */
 package org.apache.bigtop.manager.server.service.impl;
 
+import org.apache.bigtop.manager.dao.po.ServicePO;
+import org.apache.bigtop.manager.dao.repository.ClusterDao;
+import org.apache.bigtop.manager.dao.repository.ServiceDao;
+import org.apache.bigtop.manager.server.model.converter.ClusterConverter;
 import org.apache.bigtop.manager.server.model.converter.ServiceConverter;
 import org.apache.bigtop.manager.server.model.converter.StackConverter;
 import org.apache.bigtop.manager.server.model.dto.ServiceDTO;
 import org.apache.bigtop.manager.server.model.dto.StackDTO;
+import org.apache.bigtop.manager.server.model.vo.ClusterVO;
+import org.apache.bigtop.manager.server.model.vo.ServiceClusterVO;
 import org.apache.bigtop.manager.server.model.vo.StackVO;
 import org.apache.bigtop.manager.server.service.StackService;
 import org.apache.bigtop.manager.server.utils.StackUtils;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import org.springframework.stereotype.Service;
 
 import lombok.extern.slf4j.Slf4j;
 
+import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 public class StackServiceImpl implements StackService {
+
+    @Resource
+    private ClusterDao clusterDao;
+
+    @Resource
+    private ServiceDao serviceDao;
 
     @Override
     public List<StackVO> list() {
@@ -55,5 +72,34 @@ public class StackServiceImpl implements StackService {
         }
 
         return stackVOList;
+    }
+
+    @Override
+    public List<ServiceClusterVO> serviceClusters() {
+        List<ServiceClusterVO> res = new ArrayList<>();
+        // ID - ClusterVO map
+        Map<Long, ClusterVO> clusterVOMap = ClusterConverter.INSTANCE.fromPO2VO(clusterDao.findAll()).stream()
+                .collect(Collectors.toMap(ClusterVO::getId, Function.identity()));
+        // Name - ServicePO map
+        Map<String, List<ServicePO>> servicePONameMap =
+                serviceDao.findAll().stream().collect(Collectors.groupingBy(ServicePO::getName));
+        List<ServiceDTO> serviceDTOList = StackUtils.getAllStacks().stream()
+                .map(StackUtils::getServiceDTOList)
+                .flatMap(List::stream)
+                .toList();
+        for (ServiceDTO serviceDTO : serviceDTOList) {
+            List<ClusterVO> clusterVOList = new ArrayList<>();
+            List<ServicePO> servicePOList = servicePONameMap.get(serviceDTO.getName());
+            if (!CollectionUtils.isEmpty(servicePOList)) {
+                for (ServicePO servicePO : servicePOList) {
+                    ClusterVO clusterVO = clusterVOMap.get(servicePO.getClusterId());
+                    clusterVOList.add(clusterVO);
+                }
+            }
+
+            res.add(new ServiceClusterVO(serviceDTO.getName(), clusterVOList));
+        }
+
+        return res;
     }
 }

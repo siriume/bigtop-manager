@@ -18,6 +18,7 @@
  */
 package org.apache.bigtop.manager.server.service;
 
+import org.apache.bigtop.manager.server.model.vo.ServiceClusterVO;
 import org.apache.bigtop.manager.server.model.vo.StackVO;
 
 import java.util.List;
@@ -30,4 +31,11 @@ public interface StackService {
      * @return Stacks
      */
     List<StackVO> list();
+
+    /**
+     * Get service clusters.
+     *
+     * @return Service clusters
+     */
+    List<ServiceClusterVO> serviceClusters();
 }

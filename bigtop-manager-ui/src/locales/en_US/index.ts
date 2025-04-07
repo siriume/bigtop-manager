@@ -23,6 +23,12 @@ import login from '@/locales/en_US/login'
 import user from '@/locales/en_US/user.ts'
 import llmConfig from '@/locales/en_US/llm-config.ts'
 import aiAssistant from '@/locales/en_US/ai-assistant.ts'
+import cluster from '@/locales/en_US/cluster.ts'
+import host from '@/locales/en_US/host.ts'
+import job from '@/locales/en_US/job.ts'
+import overview from '@/locales/en_US/overview'
+import service from '@/locales/en_US/service'
+import infra from '@/locales/en_US/infra.ts'
 
 export default {
   common,
@@ -30,5 +36,11 @@ export default {
   login,
   user,
   llmConfig,
-  aiAssistant
+  aiAssistant,
+  cluster,
+  host,
+  job,
+  overview,
+  service,
+  infra
 }

@@ -19,7 +19,6 @@
 package org.apache.bigtop.manager.server.command.job.host;
 
 import org.apache.bigtop.manager.server.command.job.JobContext;
-import org.apache.bigtop.manager.server.command.stage.CacheFileUpdateStage;
 import org.apache.bigtop.manager.server.command.stage.HostCheckStage;
 import org.apache.bigtop.manager.server.command.stage.SetupJdkStage;
 import org.apache.bigtop.manager.server.command.stage.StageContext;
@@ -50,7 +49,6 @@ public class HostAddJob extends AbstractHostJob {
     protected void createStages() {
         StageContext stageContext = StageContext.fromCommandDTO(jobContext.getCommandDTO());
         stages.add(new HostCheckStage(stageContext));
-        stages.add(new CacheFileUpdateStage(stageContext));
         stages.add(new SetupJdkStage(stageContext));
     }
 
@@ -74,7 +72,10 @@ public class HostAddJob extends AbstractHostJob {
         CommandDTO commandDTO = jobContext.getCommandDTO();
         List<HostDTO> hostDTOList = HostConverter.INSTANCE.fromCommand2DTO(commandDTO.getHostCommands());
         for (HostDTO hostDTO : hostDTOList) {
-            hostDTO.setClusterId(clusterPO.getId());
+            if (hostDTO.getClusterId() == null) {
+                hostDTO.setClusterId(clusterPO.getId());
+            }
+
             hostService.add(hostDTO);
         }
     }

@@ -37,6 +37,8 @@ import org.apache.bigtop.manager.server.command.task.Task;
 import org.apache.bigtop.manager.server.enums.ApiExceptionEnum;
 import org.apache.bigtop.manager.server.exception.ApiException;
 import org.apache.bigtop.manager.server.model.converter.JobConverter;
+import org.apache.bigtop.manager.server.model.converter.StageConverter;
+import org.apache.bigtop.manager.server.model.converter.TaskConverter;
 import org.apache.bigtop.manager.server.model.query.PageQuery;
 import org.apache.bigtop.manager.server.model.vo.JobVO;
 import org.apache.bigtop.manager.server.model.vo.PageVO;
@@ -52,6 +54,9 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 
 import jakarta.annotation.Resource;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -75,11 +80,49 @@ public class JobServiceImpl implements JobService {
         try (Page<?> ignored =
                 PageHelper.startPage(pageQuery.getPageNum(), pageQuery.getPageSize(), pageQuery.getOrderBy())) {
             List<JobPO> jobPOList = jobDao.findByClusterId(clusterId);
+            List<JobVO> jobVOList = new ArrayList<>();
+            for (JobPO jobPO : jobPOList) {
+                List<StagePO> stagePOList = stageDao.findByJobId(jobPO.getId());
+                List<StagePO> runningStagePOList = stagePOList.stream()
+                        .filter(stagePO -> List.of(JobState.PROCESSING, JobState.SUCCESSFUL)
+                                .contains(JobState.fromString(stagePO.getState())))
+                        .toList();
+                JobVO jobVO = JobConverter.INSTANCE.fromPO2VO(jobPO);
+                jobVO.setProgress(new BigDecimal(runningStagePOList.size())
+                        .divide(new BigDecimal(stagePOList.size()), 2, RoundingMode.HALF_UP)
+                        .multiply(new BigDecimal(100))
+                        .intValue());
+                jobVOList.add(jobVO);
+            }
+
             PageInfo<JobPO> pageInfo = new PageInfo<>(jobPOList);
-            return PageVO.of(pageInfo);
+            return PageVO.of(jobVOList, pageInfo.getTotal());
         } finally {
             PageHelper.clearPage();
         }
+    }
+
+    @Override
+    public JobVO jobDetails(Long clusterId, Long jobId) {
+        JobPO jobPO = jobDao.findById(jobId);
+        List<StageVO> stages = new ArrayList<>();
+        List<StagePO> stagePOList = stageDao.findByJobId(jobId);
+        for (int i = 0; i < stagePOList.size(); i++) {
+            StagePO stagePO = findCorrectStagePO(stagePOList, i + 1);
+            if (stagePO == null) {
+                throw new ApiException(ApiExceptionEnum.JOB_NOT_FOUND);
+            }
+
+            StageVO stageVO = StageConverter.INSTANCE.fromPO2VO(stagePO);
+            List<TaskPO> taskPOList = taskDao.findByStageId(stagePO.getId());
+            List<TaskVO> taskVOList = TaskConverter.INSTANCE.fromPO2VO(taskPOList);
+            stageVO.setTasks(taskVOList);
+            stages.add(stageVO);
+        }
+
+        JobVO jobVO = JobConverter.INSTANCE.fromPO2VO(jobPO);
+        jobVO.setStages(stages);
+        return jobVO;
     }
 
     @Override

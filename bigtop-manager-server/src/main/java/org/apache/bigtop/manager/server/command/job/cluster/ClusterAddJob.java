@@ -21,9 +21,7 @@ package org.apache.bigtop.manager.server.command.job.cluster;
 import org.apache.bigtop.manager.dao.po.JobPO;
 import org.apache.bigtop.manager.dao.po.StagePO;
 import org.apache.bigtop.manager.dao.po.TaskPO;
-import org.apache.bigtop.manager.server.command.job.AbstractJob;
 import org.apache.bigtop.manager.server.command.job.JobContext;
-import org.apache.bigtop.manager.server.command.stage.CacheFileUpdateStage;
 import org.apache.bigtop.manager.server.command.stage.HostCheckStage;
 import org.apache.bigtop.manager.server.command.stage.SetupJdkStage;
 import org.apache.bigtop.manager.server.command.stage.Stage;
@@ -39,7 +37,7 @@ import org.apache.bigtop.manager.server.service.HostService;
 
 import java.util.List;
 
-public class ClusterAddJob extends AbstractJob {
+public class ClusterAddJob extends AbstractClusterJob {
 
     private HostService hostService;
 
@@ -55,10 +53,21 @@ public class ClusterAddJob extends AbstractJob {
     }
 
     @Override
+    protected void beforeCreateStages() {
+        super.beforeCreateStages();
+
+        if (jobContext.getRetryFlag()) {
+            // Cluster already created, but command still doesn't have cluster id
+            // So we need to find the cluster by name
+            String clusterName = jobContext.getCommandDTO().getClusterCommand().getName();
+            clusterPO = clusterDao.findByName(clusterName);
+        }
+    }
+
+    @Override
     protected void createStages() {
         StageContext stageContext = StageContext.fromCommandDTO(jobContext.getCommandDTO());
         stages.add(new HostCheckStage(stageContext));
-        stages.add(new CacheFileUpdateStage(stageContext));
         stages.add(new SetupJdkStage(stageContext));
     }
 

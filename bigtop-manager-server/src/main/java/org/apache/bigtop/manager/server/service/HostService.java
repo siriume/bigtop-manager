@@ -20,6 +20,7 @@ package org.apache.bigtop.manager.server.service;
 
 import org.apache.bigtop.manager.dao.query.HostQuery;
 import org.apache.bigtop.manager.server.model.dto.HostDTO;
+import org.apache.bigtop.manager.server.model.vo.ComponentVO;
 import org.apache.bigtop.manager.server.model.vo.HostVO;
 import org.apache.bigtop.manager.server.model.vo.InstalledStatusVO;
 import org.apache.bigtop.manager.server.model.vo.PageVO;
@@ -66,6 +67,20 @@ public interface HostService {
     Boolean remove(Long id);
 
     /**
+     * Get host components
+     *
+     * @return Components
+     */
+    List<ComponentVO> components(Long id);
+
+    /**
+     * Batch delete hosts
+     *
+     * @return Host
+     */
+    Boolean batchRemove(List<Long> ids);
+
+    /**
      * Check hosts connection
      *
      * @param hostDTO host infos
@@ -76,10 +91,10 @@ public interface HostService {
     /**
      * Install dependencies
      *
-     * @param hostDTO host infos
+     * @param hostDTOList host infos
      * @return true if all dependencies are installed
      */
-    Boolean installDependencies(HostDTO hostDTO);
+    Boolean installDependencies(List<HostDTO> hostDTOList);
 
     /**
      * Get dependency installed status

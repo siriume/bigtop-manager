@@ -40,11 +40,29 @@ export const useMenuStore = defineStore(
     const headerSelectedKey = ref(headerMenus.value[0].path)
 
     const hasCluster = computed(() => clusters.value.length > 0)
-    const isClusterCreateVisible = computed(() => RouteExceptions.SPECIAL_ROUTE_PATH.includes(route.matched[0].path))
+    const isCreateClusterVisible = computed(() => RouteExceptions.SPECIAL_ROUTE_PATH.includes(route.matched[0].path))
     const isDynamicRouteMatched = computed(() => {
       const path = route.matched.at(-1)?.path
       return path?.includes(RouteExceptions.DYNAMIC_ROUTE_MATCH)
     })
+
+    const updateSiderItemByClusters = (formatSider: MenuItem[]) => {
+      formatSider.forEach((item) => {
+        if (item.name == RouteExceptions.SPECIAL_ROUTE_NAME) {
+          item.children = clusters.value.map((v) => {
+            return {
+              icon: '',
+              key: `${item.key}/${v.displayName}/${v.id}`,
+              label: v.displayName || '',
+              title: v.displayName || '',
+              activeMenu: item.key,
+              status: v.status || 3
+            }
+          })
+        }
+      })
+    }
+
     const siderMenus = computed((): MenuItem[] => {
       const siderMenuTemplate = baseRoutesMap.value.get(headerSelectedKey.value) || []
       const formatSider = cloneDeep(siderMenuTemplate)
@@ -63,7 +81,13 @@ export const useMenuStore = defineStore(
 
     watchEffect(() => {
       // resolve highlight menu
-      const activeMenu = route.meta.activeMenu || route.path
+      let activeMenu = route.meta.activeMenu || route.path
+      if (route.name === 'CreateService') {
+        activeMenu = route.path.split('/').slice(0, -2).join('/')
+      }
+      if (route.name === 'ServiceDetail') {
+        activeMenu = route.path.split('/').slice(0, -3).join('/')
+      }
       const matchedNames = [RouteExceptions.SPECIAL_ROUTE_NAME, RouteExceptions.DEFAULT_ROUTE_NAME] as string[]
       headerSelectedKey.value = route.matched[0].path
 
@@ -82,22 +106,6 @@ export const useMenuStore = defineStore(
         siderMenuSelectedKey.value = activeMenu
       }
     })
-
-    const updateSiderItemByClusters = (formatSider: MenuItem[]) => {
-      formatSider.forEach((item) => {
-        if (item.name == RouteExceptions.SPECIAL_ROUTE_NAME) {
-          item.children = clusters.value.map((v) => {
-            return {
-              icon: '',
-              key: `${item.key}/${v.clusterName}/${v.id}`,
-              label: v.clusterName,
-              title: v.clusterName,
-              activeMenu: item.key
-            }
-          })
-        }
-      })
-    }
 
     const formatRouteToMenu = (tree: any[], upPath = ''): MenuItem[] => {
       return tree
@@ -144,8 +152,10 @@ export const useMenuStore = defineStore(
       router.push(siderMenuSelectedKey.value)
     }
 
-    const setUpMenu = () => {
+    const setUpMenu = async () => {
       setBaseRoutesMap()
+      await clusterStore.loadClusters()
+      updateSiderMenu()
     }
 
     const cleanUpMenu = () => {
@@ -157,7 +167,7 @@ export const useMenuStore = defineStore(
       siderMenus,
       headerSelectedKey,
       siderMenuSelectedKey,
-      isClusterCreateVisible,
+      isCreateClusterVisible,
       isDynamicRouteMatched,
       setUpMenu,
       cleanUpMenu,
@@ -168,6 +178,9 @@ export const useMenuStore = defineStore(
     }
   },
   {
-    persist: false
+    persist: {
+      storage: localStorage,
+      paths: ['siderMenus']
+    }
   }
 )

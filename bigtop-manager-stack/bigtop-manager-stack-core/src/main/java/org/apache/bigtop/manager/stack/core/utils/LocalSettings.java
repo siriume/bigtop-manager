@@ -19,11 +19,10 @@
 package org.apache.bigtop.manager.stack.core.utils;
 
 import org.apache.bigtop.manager.common.constants.CacheFiles;
-import org.apache.bigtop.manager.common.message.entity.pojo.ClusterInfo;
-import org.apache.bigtop.manager.common.message.entity.pojo.ComponentInfo;
-import org.apache.bigtop.manager.common.message.entity.pojo.RepoInfo;
 import org.apache.bigtop.manager.common.utils.JsonUtils;
 import org.apache.bigtop.manager.common.utils.ProjectPathUtils;
+import org.apache.bigtop.manager.grpc.pojo.ClusterInfo;
+import org.apache.bigtop.manager.grpc.pojo.RepoInfo;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +43,7 @@ public class LocalSettings {
     public static Map<String, Object> configurations(String service, String type) {
 
         Map<String, Object> configDataMap = new HashMap<>();
-        File file = new File(ProjectPathUtils.getAgentCachePath() + CacheFiles.CONFIGURATIONS_INFO);
+        File file = createFile(ProjectPathUtils.getAgentCachePath() + CacheFiles.CONFIGURATIONS_INFO);
         try {
             if (file.exists()) {
                 Map<String, Map<String, Object>> configJson = JsonUtils.readFromFile(file, new TypeReference<>() {});
@@ -68,7 +67,7 @@ public class LocalSettings {
     public static Map<String, List<String>> hosts() {
 
         Map<String, List<String>> hostJson = new HashMap<>();
-        File file = new File(ProjectPathUtils.getAgentCachePath() + CacheFiles.HOSTS_INFO);
+        File file = createFile(ProjectPathUtils.getAgentCachePath() + CacheFiles.HOSTS_INFO);
         if (file.exists()) {
             hostJson = JsonUtils.readFromFile(file, new TypeReference<>() {});
         }
@@ -78,7 +77,7 @@ public class LocalSettings {
     public static Map<String, Object> basicInfo() {
 
         Map<String, Object> settings = new HashMap<>();
-        File file = new File(ProjectPathUtils.getAgentCachePath() + CacheFiles.SETTINGS_INFO);
+        File file = createFile(ProjectPathUtils.getAgentCachePath() + CacheFiles.SETTINGS_INFO);
         if (file.exists()) {
             settings = JsonUtils.readFromFile(file, new TypeReference<>() {});
         }
@@ -88,7 +87,7 @@ public class LocalSettings {
     public static Map<String, String> users() {
 
         Map<String, String> userMap = new HashMap<>();
-        File file = new File(ProjectPathUtils.getAgentCachePath() + CacheFiles.USERS_INFO);
+        File file = createFile(ProjectPathUtils.getAgentCachePath() + CacheFiles.USERS_INFO);
         if (file.exists()) {
             userMap = JsonUtils.readFromFile(file, new TypeReference<>() {});
         }
@@ -102,7 +101,7 @@ public class LocalSettings {
     public static List<RepoInfo> repos() {
 
         List<RepoInfo> repoInfoList = List.of();
-        File file = new File(ProjectPathUtils.getAgentCachePath() + CacheFiles.REPOS_INFO);
+        File file = createFile(ProjectPathUtils.getAgentCachePath() + CacheFiles.REPOS_INFO);
         if (file.exists()) {
             repoInfoList = JsonUtils.readFromFile(file, new TypeReference<>() {});
         }
@@ -112,20 +111,14 @@ public class LocalSettings {
     public static ClusterInfo cluster() {
 
         ClusterInfo clusterInfo = new ClusterInfo();
-        File file = new File(ProjectPathUtils.getAgentCachePath() + CacheFiles.CLUSTER_INFO);
+        File file = createFile(ProjectPathUtils.getAgentCachePath() + CacheFiles.CLUSTER_INFO);
         if (file.exists()) {
             clusterInfo = JsonUtils.readFromFile(file, new TypeReference<>() {});
         }
         return clusterInfo;
     }
 
-    public static Map<String, ComponentInfo> components() {
-
-        Map<String, ComponentInfo> componentInfo = new HashMap<>();
-        File file = new File(ProjectPathUtils.getAgentCachePath() + CacheFiles.COMPONENTS_INFO);
-        if (file.exists()) {
-            componentInfo = JsonUtils.readFromFile(file, new TypeReference<>() {});
-        }
-        return componentInfo;
+    protected static File createFile(String fileName) {
+        return new File(fileName);
     }
 }

@@ -45,3 +45,28 @@
     height: 20px;
   }
 }
+
+// temp resolve error on console
+.ant-modal div[aria-hidden='true'] {
+  display: none !important;
+}
+
+:where(.ant-modal-header) {
+  margin-bottom: 16px !important;
+}
+
+
+.header-title {
+  font-weight: 500;
+  margin-bottom: $space-md;
+}
+
+
+.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  display: inline-block;
+  position: relative;
+}

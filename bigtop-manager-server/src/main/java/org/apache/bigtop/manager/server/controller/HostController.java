@@ -22,6 +22,8 @@ import org.apache.bigtop.manager.dao.query.HostQuery;
 import org.apache.bigtop.manager.server.model.converter.HostConverter;
 import org.apache.bigtop.manager.server.model.dto.HostDTO;
 import org.apache.bigtop.manager.server.model.req.HostReq;
+import org.apache.bigtop.manager.server.model.req.IdsReq;
+import org.apache.bigtop.manager.server.model.vo.ComponentVO;
 import org.apache.bigtop.manager.server.model.vo.HostVO;
 import org.apache.bigtop.manager.server.model.vo.InstalledStatusVO;
 import org.apache.bigtop.manager.server.model.vo.PageVO;
@@ -46,6 +48,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.annotation.Resource;
+import java.util.ArrayList;
 import java.util.List;
 
 @Tag(name = "Host Controller")
@@ -98,6 +101,18 @@ public class HostController {
         return ResponseEntity.success(hostService.remove(id));
     }
 
+    @Operation(summary = "components", description = "Get host components")
+    @GetMapping("/{id}/components")
+    public ResponseEntity<List<ComponentVO>> components(@PathVariable Long id) {
+        return ResponseEntity.success(hostService.components(id));
+    }
+
+    @Operation(summary = "batch remove", description = "Remove hosts")
+    @DeleteMapping("/batch")
+    public ResponseEntity<Boolean> batchRemove(@RequestBody IdsReq req) {
+        return ResponseEntity.success(hostService.batchRemove(req.getIds()));
+    }
+
     @Operation(summary = "Check connection", description = "Check connection for hosts")
     @PostMapping("/check-connection")
     public ResponseEntity<Boolean> checkConnection(@RequestBody @Validated HostReq hostReq) {
@@ -107,9 +122,10 @@ public class HostController {
 
     @Operation(summary = "Install dependencies", description = "Install dependencies on a host")
     @PostMapping("/install-dependencies")
-    public ResponseEntity<Boolean> installDependencies(@RequestBody @Validated HostReq hostReq) {
-        HostDTO hostDTO = HostConverter.INSTANCE.fromReq2DTO(hostReq);
-        return ResponseEntity.success(hostService.installDependencies(hostDTO));
+    public ResponseEntity<Boolean> installDependencies(@RequestBody @Validated List<HostReq> hostReqs) {
+        List<HostDTO> hostDTOList = new ArrayList<>();
+        hostReqs.forEach(hostReq -> hostDTOList.add(HostConverter.INSTANCE.fromReq2DTO(hostReq)));
+        return ResponseEntity.success(hostService.installDependencies(hostDTOList));
     }
 
     @Operation(summary = "Installed status", description = "Install status for a host")

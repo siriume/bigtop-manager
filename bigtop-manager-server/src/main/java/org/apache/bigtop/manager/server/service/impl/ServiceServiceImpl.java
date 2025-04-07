@@ -19,30 +19,38 @@
 package org.apache.bigtop.manager.server.service.impl;
 
 import org.apache.bigtop.manager.common.utils.JsonUtils;
+import org.apache.bigtop.manager.dao.po.ClusterPO;
 import org.apache.bigtop.manager.dao.po.ComponentPO;
 import org.apache.bigtop.manager.dao.po.ServiceConfigPO;
 import org.apache.bigtop.manager.dao.po.ServiceConfigSnapshotPO;
 import org.apache.bigtop.manager.dao.po.ServicePO;
 import org.apache.bigtop.manager.dao.query.ComponentQuery;
 import org.apache.bigtop.manager.dao.query.ServiceQuery;
+import org.apache.bigtop.manager.dao.repository.ClusterDao;
 import org.apache.bigtop.manager.dao.repository.ComponentDao;
 import org.apache.bigtop.manager.dao.repository.ServiceConfigDao;
 import org.apache.bigtop.manager.dao.repository.ServiceConfigSnapshotDao;
 import org.apache.bigtop.manager.dao.repository.ServiceDao;
 import org.apache.bigtop.manager.server.enums.ApiExceptionEnum;
 import org.apache.bigtop.manager.server.exception.ApiException;
+import org.apache.bigtop.manager.server.model.converter.ComponentConverter;
 import org.apache.bigtop.manager.server.model.converter.ServiceConfigConverter;
 import org.apache.bigtop.manager.server.model.converter.ServiceConfigSnapshotConverter;
 import org.apache.bigtop.manager.server.model.converter.ServiceConverter;
+import org.apache.bigtop.manager.server.model.dto.ServiceConfigDTO;
 import org.apache.bigtop.manager.server.model.query.PageQuery;
 import org.apache.bigtop.manager.server.model.req.ServiceConfigReq;
 import org.apache.bigtop.manager.server.model.req.ServiceConfigSnapshotReq;
+import org.apache.bigtop.manager.server.model.vo.ComponentVO;
 import org.apache.bigtop.manager.server.model.vo.PageVO;
 import org.apache.bigtop.manager.server.model.vo.ServiceConfigSnapshotVO;
 import org.apache.bigtop.manager.server.model.vo.ServiceConfigVO;
+import org.apache.bigtop.manager.server.model.vo.ServiceUserVO;
 import org.apache.bigtop.manager.server.model.vo.ServiceVO;
 import org.apache.bigtop.manager.server.service.ServiceService;
 import org.apache.bigtop.manager.server.utils.PageUtils;
+import org.apache.bigtop.manager.server.utils.StackConfigUtils;
+import org.apache.bigtop.manager.server.utils.StackUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -62,6 +70,9 @@ import java.util.Map;
 @Slf4j
 @Service
 public class ServiceServiceImpl implements ServiceService {
+
+    @Resource
+    private ClusterDao clusterDao;
 
     @Resource
     private ServiceDao serviceDao;
@@ -89,8 +100,43 @@ public class ServiceServiceImpl implements ServiceService {
     }
 
     @Override
+    public PageVO<ServiceUserVO> serviceUsers(Long clusterId) {
+        PageQuery pageQuery = PageUtils.getPageQuery();
+        try (Page<?> ignored =
+                PageHelper.startPage(pageQuery.getPageNum(), pageQuery.getPageSize(), pageQuery.getOrderBy())) {
+            ServiceQuery query = ServiceQuery.builder().clusterId(clusterId).build();
+            List<ServicePO> servicePOList = serviceDao.findByQuery(query);
+
+            ClusterPO clusterPO = clusterDao.findById(clusterId);
+            List<ServiceUserVO> res = new ArrayList<>();
+            for (ServicePO servicePO : servicePOList) {
+                ServiceUserVO serviceUserVO = new ServiceUserVO();
+                serviceUserVO.setDisplayName(servicePO.getDisplayName());
+                serviceUserVO.setUser(servicePO.getUser());
+                serviceUserVO.setUserGroup(clusterPO.getUserGroup());
+                serviceUserVO.setDesc(servicePO.getDesc());
+                res.add(serviceUserVO);
+            }
+
+            PageInfo<ServicePO> pageInfo = new PageInfo<>(servicePOList);
+            return PageVO.of(res, pageInfo.getTotal());
+        } finally {
+            PageHelper.clearPage();
+        }
+    }
+
+    @Override
     public ServiceVO get(Long id) {
-        return ServiceConverter.INSTANCE.fromPO2VO(serviceDao.findById(id));
+        ServiceVO serviceVO = ServiceConverter.INSTANCE.fromPO2VO(serviceDao.findById(id));
+
+        ComponentQuery query = ComponentQuery.builder().serviceId(id).build();
+        List<ComponentPO> componentPOList = componentDao.findByQuery(query);
+        List<ComponentVO> componentVOList = ComponentConverter.INSTANCE.fromPO2VO(componentPOList);
+        List<ServiceConfigVO> serviceConfigVOList = listConf(null, id);
+
+        serviceVO.setComponents(componentVOList);
+        serviceVO.setConfigs(serviceConfigVOList);
+        return serviceVO;
     }
 
     @Override
@@ -116,15 +162,26 @@ public class ServiceServiceImpl implements ServiceService {
 
     @Override
     public List<ServiceConfigVO> updateConf(Long clusterId, Long serviceId, List<ServiceConfigReq> reqs) {
-        List<ServiceConfigPO> list = new ArrayList<>();
-        for (ServiceConfigReq req : reqs) {
-            ServiceConfigPO serviceConfigPO = new ServiceConfigPO();
-            serviceConfigPO.setId(req.getId());
-            serviceConfigPO.setPropertiesJson(JsonUtils.writeAsString(req.getProperties()));
-            list.add(serviceConfigPO);
-        }
+        ServicePO servicePO = serviceDao.findById(serviceId);
+        List<ServiceConfigPO> configs = serviceConfigDao.findByServiceId(serviceId);
 
-        serviceConfigDao.partialUpdateByIds(list);
+        List<ServiceConfigDTO> oriConfigs;
+        List<ServiceConfigDTO> newConfigs;
+        List<ServiceConfigDTO> mergedConfigs;
+
+        // Merge stack config with existing config first, in case new property has been added to stack config.
+        oriConfigs = StackUtils.SERVICE_CONFIG_MAP.get(servicePO.getName());
+        newConfigs = ServiceConfigConverter.INSTANCE.fromPO2DTO(configs);
+        mergedConfigs = StackConfigUtils.mergeServiceConfigs(oriConfigs, newConfigs);
+
+        // Merge existing config with new config in request object
+        oriConfigs = mergedConfigs;
+        newConfigs = ServiceConfigConverter.INSTANCE.fromReq2DTO(reqs);
+        mergedConfigs = StackConfigUtils.mergeServiceConfigs(oriConfigs, newConfigs);
+
+        // Save merged config
+        List<ServiceConfigPO> serviceConfigPOList = ServiceConfigConverter.INSTANCE.fromDTO2PO(mergedConfigs);
+        serviceConfigDao.partialUpdateByIds(serviceConfigPOList);
         return listConf(clusterId, serviceId);
     }
 

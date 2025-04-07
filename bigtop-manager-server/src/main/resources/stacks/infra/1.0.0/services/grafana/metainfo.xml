@@ -29,6 +29,7 @@
         </desc>
         <version>11.4.0</version>
         <user>grafana</user>
+        <license>AGPL-3.0</license>
 
         <components>
             <component>
@@ -36,6 +37,13 @@
                 <display-name>Grafana Server</display-name>
                 <category>server</category>
                 <cardinality>1+</cardinality>
+                <quick-link>
+                    <display-name>Grafana UI</display-name>
+                    <http-port-property>port</http-port-property>
+                    <http-port-default>3000</http-port-default>
+                    <https-port-property>port</https-port-property>
+                    <https-port-default>3000</https-port-default>
+                </quick-link>
             </component>
         </components>
 
@@ -63,5 +71,20 @@
                 </packages>
             </package-specific>
         </package-specifics>
+
+        <templates>
+            <template>
+                <src>cluster-dashboard.json</src>
+                <dest>conf/provisioning/dashboards/cluster</dest>
+            </template>
+            <template>
+                <src>host-dashboard.json</src>
+                <dest>conf/provisioning/dashboards/host</dest>
+            </template>
+        </templates>
+
+        <required-services>
+            <service>prometheus</service>
+        </required-services>
     </service>
 </metainfo>

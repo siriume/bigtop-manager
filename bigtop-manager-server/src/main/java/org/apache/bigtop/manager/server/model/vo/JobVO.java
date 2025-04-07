@@ -20,6 +20,8 @@ package org.apache.bigtop.manager.server.model.vo;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class JobVO {
 
@@ -32,4 +34,8 @@ public class JobVO {
     private String createTime;
 
     private String updateTime;
+
+    private Integer progress;
+
+    private List<StageVO> stages;
 }
