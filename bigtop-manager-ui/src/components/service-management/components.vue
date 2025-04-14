@@ -21,13 +21,13 @@
   import { computed, onActivated, onDeactivated, reactive, ref, shallowRef, useAttrs } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useI18n } from 'vue-i18n'
-  import { useRoute } from 'vue-router'
+  import { useRoute, useRouter } from 'vue-router'
   import { deleteComponent, getComponents } from '@/api/component'
-  import { execCommand } from '@/api/command'
   import { useStackStore } from '@/store/stack'
+  import { useJobProgress } from '@/store/job-progress'
   import useBaseTable from '@/composables/use-base-table'
-  import type { GroupItem } from '@/components/common/button-group/types'
   import { message, Modal, type TableColumnType, type TableProps } from 'ant-design-vue'
+  import type { GroupItem } from '@/components/common/button-group/types'
   import type { ComponentVO } from '@/api/component/types'
   import type { FilterConfirmProps, FilterResetProps } from 'ant-design-vue/es/table/interface'
   import type { Command, CommandRequest } from '@/api/command/types'
@@ -49,16 +49,18 @@
 
   const POLLING_INTERVAL = 3000
   const { t } = useI18n()
+  const jobProgressStore = useJobProgress()
   const stackStore = useStackStore()
   const route = useRoute()
+  const router = useRouter()
   const attrs = useAttrs()
-  const { stacks } = storeToRefs(stackStore)
+  const { stacks, stackRelationMap } = storeToRefs(stackStore)
   const searchInputRef = ref()
   const pollingIntervalId = ref<any>(null)
   const componentStatus = ref(['INSTALLING', 'SUCCESS', 'FAILED', 'UNKNOWN'])
   const commandRequest = shallowRef<CommandRequest>({
     command: 'Add',
-    commandLevel: 'cluster',
+    commandLevel: 'component',
     componentCommands: []
   })
   const state = reactive<TableState>({
@@ -145,21 +147,23 @@
     {
       text: 'start',
       action: 'Start',
+      hidden: (_, args) => stackRelationMap.value?.components[`${args.name}`].category === 'client',
       clickEvent: (item, args) => handleTableOperation(item!, args)
     },
     {
       text: 'stop',
       action: 'Stop',
+      hidden: (_, args) => stackRelationMap.value?.components[`${args.name}`].category === 'client',
       clickEvent: (item, args) => handleTableOperation(item!, args)
     },
     {
       text: 'restart',
       action: 'Restart',
+      hidden: (_, args) => stackRelationMap.value?.components[`${args.name}`].category === 'client',
       clickEvent: (item, args) => handleTableOperation(item!, args)
     },
     {
       text: 'remove',
-      disabled: true,
       danger: true,
       clickEvent: (_, args) => handleDelete(args)
     }
@@ -233,14 +237,18 @@
       hostnames: [row.hostname!]
     })
     await execOperation()
-    getComponentList(true, true)
   }
 
   const execOperation = async () => {
     try {
-      await execCommand({ ...commandRequest.value, clusterId: currServiceInfo.value.id })
-      state.selectedRowKeys = []
-      state.selectedRows = []
+      await jobProgressStore.processCommand(
+        { ...commandRequest.value, clusterId: currServiceInfo.value.id },
+        async () => {
+          getComponentList(true, true)
+          state.selectedRowKeys = []
+          state.selectedRows = []
+        }
+      )
     } catch (error) {
       console.log('error :>> ', error)
     }
@@ -307,6 +315,16 @@
     }
   }
 
+  const addComponent = () => {
+    const { cluster: clusterId } = route.params
+    const creationMode = clusterId == '0' ? 'public' : 'internal'
+    const routerName = clusterId == '0' ? 'CreateInfraComponent' : 'CreateComponent'
+    router.push({
+      name: routerName,
+      params: { ...route.params, creationMode, type: 'component' }
+    })
+  }
+
   onActivated(() => {
     startPolling()
   })
@@ -321,7 +339,7 @@
     <header>
       <div class="header-title">{{ $t('common.component') }}</div>
       <div class="list-operation">
-        <a-button type="primary" :disabled="true">{{ $t('common.add', [`${$t('common.component')}`]) }}</a-button>
+        <a-button type="primary" @click="addComponent">{{ $t('common.add', [`${$t('common.component')}`]) }}</a-button>
         <button-group :groups="batchOperations" group-shape="default" />
       </div>
     </header>
@@ -375,7 +393,7 @@
             :text-compact="true"
             :space="24"
             :groups="operations"
-            :args="record"
+            :payload="record"
             group-shape="default"
             group-type="link"
           />
